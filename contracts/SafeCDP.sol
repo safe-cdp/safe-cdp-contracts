@@ -1,11 +1,13 @@
-pragma solidity >=0.4.21 <0.6.0;
+pragma solidity >=0.4.22 <0.6.0;
 
-import "ds-thing/thing.sol";
+contract TubInterface {
+    function lad(bytes32 cup) public view returns (address);
+}
 
-contract SafeCDP is DSThing {
+contract SafeCDP {
 
     address cdpOwner;
-    address tub;
+    TubInterface tub;
     bytes32 cup;
 
     modifier onlyCDPOwner() {
@@ -16,8 +18,14 @@ contract SafeCDP is DSThing {
     // Making sure that this contract can only be used if the CDP has
     // actually been given to this contract.
     modifier ifCDPGiven() {
-        require(this == tub.lad(cup), "This contract doesn't own the CDP.");
+        require(address(this) == tub.lad(cup), "This contract doesn't own the CDP.");
         _;
+    }
+
+    constructor(address _cdpOwner, address _tub, bytes32 _cup) public {
+        cdpOwner = _cdpOwner;
+        tub = TubInterface(_tub);
+        cup = _cup;
     }
 
     // Certain functions from the SaiProxy are priviledged, in that they can
@@ -30,14 +38,14 @@ contract SafeCDP is DSThing {
     // When the collateralization ratio is lower than the margin call
     // threshold, this function may be invoked by a keeper to wipe enough
     // debt to raise the threshold to the target.
-    function marginCall() public note ifCDPGiven { }
+    function marginCall() public ifCDPGiven { }
     
     // When invoked, the msg.sender will pay all the keepers that have covered
     // debt for this CDP.
-    function respondToMarginCall() public note ifCDPGiven { }
+    function respondToMarginCall() public ifCDPGiven { }
 
     // A keeper may call this function to withdraw part of the collateral if
     // the CDP owner fails to respond to a margin call.
-    function withdrawCollateral(uint _wad) public note ifCDPGiven { }
+    function withdrawCollateral(uint _wad) public ifCDPGiven { }
 
 }
