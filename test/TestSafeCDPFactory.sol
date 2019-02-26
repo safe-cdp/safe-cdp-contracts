@@ -10,8 +10,8 @@ contract TestSafeCDPFactory {
         SafeCDPFactory factory = SafeCDPFactory(DeployedAddresses.SafeCDPFactory());
 
         // Create two SafeCDPs
-        address s1 = factory.createSafeCDP(bytes32(0));
-        address s2 = factory.createSafeCDP(bytes32(uint(1)));
+        address s1 = factory.createSafeCDP(bytes32(0), 0, 0, 0, 0);
+        address s2 = factory.createSafeCDP(bytes32(uint(1)), 0, 0, 0, 0);
 
         Assert.equal(address(factory.ownerToSafeCDP(address(this), 0)), s1, "Expected 2 CDPs");
         Assert.equal(address(factory.ownerToSafeCDP(address(this), 1)), s2, "Expected 2 CDPs");

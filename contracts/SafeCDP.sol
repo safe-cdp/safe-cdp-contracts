@@ -39,6 +39,11 @@ contract SafeCDP is DSMath {
     uint marginCallDuration;
     uint rewardForKeeper;
 
+    // Mapping from keeper to the amount of debt they paid
+    mapping(address => uint) public balances;
+    // The total amount of debt paid for by keepers
+    uint totalBalance;
+
     modifier onlyCDPOwner() {
         require(msg.sender == cdpOwner, "Not CDP owner.");
         _;
@@ -84,15 +89,46 @@ contract SafeCDP is DSMath {
     // debt to raise the threshold to the target.
     function marginCall() public ifCDPGiven {
         uint debtToPay = diffWithTargetCollateral();
+        // rewardForKeeper is a decimal in wad, like 0.2
+        uint additionalBalance = debtToPay * (WAD + rewardForKeeper) / WAD;
+
+        balances[msg.sender] += additionalBalance;
+        totalBalance += additionalBalance;
+
         // Here we assume that the msg.sender (which is the keeper) has
         // approved `debtToPay` amount of DAI for us.
         (bool success, ) = saiProxy.delegatecall(abi.encodeWithSignature("wipe(address,bytes32,uint)", tub, cup, debtToPay));
+
         require(success, "failed to wipe debt");
     }
     
-    // When invoked, the msg.sender will pay all the keepers that have covered
+    // When invoked, the msg.sender will pay all keepers that have covered
     // debt for this CDP.
-    function respondToMarginCall() public ifCDPGiven { }
+    //
+    // Note that it would be insecure for the msg.sender to pay all keepers
+    // one by one, as it risks running out of gas and the keepers being
+    // malicious smart contracts.  Therefore, we simply transfer funds
+    // to this contract, and let the keepers claim rewards themselves.
+    function payBalance() public ifCDPGiven {
+        // effects
+        uint toTransfer = totalBalance;
+        totalBalance = 0;
+
+        // interactions
+        token.transferFrom(msg.sender, address(this), toTransfer);
+    }
+
+    function claimBalance() public ifCDPGiven {
+        // checks
+        uint toTransfer = balances[msg.sender];
+        require(toTransfer > 0, "no outstanding balance");
+
+        // effects
+        balances[msg.sender] = 0;
+
+        // interactions
+        token.transferFrom(address(this), msg.sender, toTransfer);
+    }
 
     // A keeper may call this function to withdraw part of the collateral if
     // the CDP owner fails to respond to a margin call.

@@ -17,5 +17,5 @@ module.exports = function (deployer, network) {
     dai = "0xc4375b7de8af5a38a93548eb8453a498222c4ff2"
   }
 
-  deployer.deploy(SafeCDPFactory, tub)
+  deployer.deploy(SafeCDPFactory, tub, dai)
 }
