@@ -5,10 +5,10 @@ import "./SafeCDP.sol";
 contract SafeCDPFactory {
 
     // The tub (i.e. CDP Registry) contract
-    address tub;
+    address public tub;
     
     // The SaiProxy library contract
-    address saiProxy;
+    address public saiProxy;
 
     // A mapping from the original CDP owner to the SafeCDPs they own.
     // In actuality, the original owner is probably a DSProxy.

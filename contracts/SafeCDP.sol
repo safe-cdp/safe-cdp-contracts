@@ -1,30 +1,7 @@
 pragma solidity >=0.4.22 <0.6.0;
 
 import "./DSMath.sol";
-
-contract TokenInterface {
-    function allowance(address, address) public view returns (uint);
-    function balanceOf(address) public view returns (uint);
-    function approve(address, uint) public;
-    function transfer(address, uint) public returns (bool);
-    function transferFrom(address, address, uint) public returns (bool);
-    function deposit() public payable;
-    function withdraw(uint) public;
-    function burn(address, uint) public;
-}
-
-contract VoxInterface {
-    function par() public returns (uint);
-}
-
-contract TubInterface {
-    VoxInterface public vox;  // Target price feed
-    function sai() public view returns (TokenInterface);
-    function lad(bytes32 cup) public view returns (address);
-    function tab(bytes32 cup) public view returns (uint);
-    function tag() public view returns (uint wad);
-    function ink(bytes32 cup) public view returns (uint);
-}
+import "./SaiInterfaces.sol";
 
 contract SafeCDP is DSMath {
 
@@ -88,6 +65,10 @@ contract SafeCDP is DSMath {
     // threshold, this function may be invoked by a keeper to wipe enough
     // debt to raise the threshold to the target.
     function marginCall() public ifCDPGiven {
+        // checks
+        require(!safe(), "Current collateralization is not below the margin call threshold.");
+
+        // effects
         uint debtToPay = diffWithTargetCollateral();
         // rewardForKeeper is a decimal in wad, like 0.2
         uint additionalBalance = debtToPay * (WAD + rewardForKeeper) / WAD;
@@ -95,6 +76,7 @@ contract SafeCDP is DSMath {
         balances[msg.sender] += additionalBalance;
         totalBalance += additionalBalance;
 
+        // interactions
         // Here we assume that the msg.sender (which is the keeper) has
         // approved `debtToPay` amount of DAI for us.
         (bool success, ) = saiProxy.delegatecall(abi.encodeWithSignature("wipe(address,bytes32,uint)", tub, cup, debtToPay));
@@ -140,6 +122,15 @@ contract SafeCDP is DSMath {
         uint con = rmul(tub.vox().par(), wadToRay(tub.tab(cup)));
         uint pro = rmul(tub.tag(), wadToRay(tub.ink(cup)));
         return rayToWad(sub(con, rdiv(pro, targetCollateralization)));
+    }
+
+    // Returns whether the collateralization is above the margin call ratio.
+    // Adopted from: https://github.com/makerdao/sai/blob/0dd0a799e4746ac1955b67898762cff9b71aea17/src/tub.sol#L241
+    function safe() public returns (bool) {
+        uint pro = rmul(tub.tag(), tub.ink(cup));
+        uint con = rmul(tub.vox().par(), tub.tab(cup));
+        uint min = rmul(con, marginCallThreshold);
+        return pro >= min;
     }
 
     // MakerDAO's contracts use DSMath, which introduces two decimal types
